@@ -4,6 +4,7 @@
 #include "Shader.h" 
 
 #include "MeshLoader.h"
+#include "Texture.h"
 
 
 
@@ -21,7 +22,8 @@ public:
 private:
 	Camera* camera;
 	Mesh mesh;
+	Texture* texture;
 	Shader* shader_render;
-	GLuint VAO, VBO; 
+	GLuint VAO, VBO_position, VBO_texture; 
 	GLuint EBO;
 };
