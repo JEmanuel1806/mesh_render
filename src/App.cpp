@@ -23,7 +23,7 @@ App::App(unsigned int width, unsigned height)
 	renderer = new Renderer(camera);
 	renderer->start();
 
-	
+
 }
 
 App::~App() {
@@ -44,7 +44,7 @@ void App::run() {
 		processInput(window);
 
 
-		renderer->render(); 
+		renderer->render();
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -54,7 +54,7 @@ void App::run() {
 void App::processInput(GLFWwindow* window)
 {
 	// movement
-	
+
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
 		camera->ProcessKeyboard(FORWARD, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
@@ -67,6 +67,25 @@ void App::processInput(GLFWwindow* window)
 		camera->ProcessKeyboard(ROTATE_LEFT, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
 		camera->ProcessKeyboard(ROTATE_RIGHT, deltaTime);
+	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
+		if (!up_key_pressed) {
+			up_key_pressed = true;
+			renderer->switchTexture(true);
+		}
+	}
+	else if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_RELEASE) {
+		up_key_pressed = false;
+	}
+	if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
+		if (!down_key_pressed) {
+			down_key_pressed = true;
+			renderer->switchTexture(false);
+		}
+	}
+	else if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_RELEASE) {
+		down_key_pressed = false;
+	}
+
 }
 
 

@@ -26,6 +26,10 @@ void Renderer::start() {
 	mesh_size = mesh.positions.size();
 
 	texture = new Texture("textures/test.png",GL_TEXTURE_2D);
+	texture2 = new Texture("textures/test2.png", GL_TEXTURE_2D);
+	texture3 = new Texture("textures/test3.png", GL_TEXTURE_2D);
+	texture4 = new Texture("textures/test4.png", GL_TEXTURE_2D);
+	texture5 = new Texture("textures/test5.png", GL_TEXTURE_2D);
 
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO_position);
@@ -71,8 +75,14 @@ void Renderer::render()
 	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "proj"), 1, GL_FALSE, glm::value_ptr(projection));
 
 	glBindVertexArray(VAO);
+	
 	texture->bind_texture(0);
-	glUniform1i(glGetUniformLocation(shader_render->ID, "tex"), 0);
+	texture2->bind_texture(1);
+	texture3->bind_texture(2);
+	texture4->bind_texture(3);
+	texture5->bind_texture(4);
+
+	glUniform1i(glGetUniformLocation(shader_render->ID, "tex"), texture_slot);
 	glDrawElements(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 }

@@ -20,7 +20,8 @@ public:
 	float deltaTime = 0.0f;
 	float lastFrame = 0.0f;
 	bool firstMouse = true;
-	bool key_pressed = false;
+	bool up_key_pressed = false;
+	bool down_key_pressed = false;
 	float lastX = SCR_WIDTH / 2.0f;
 	float lastY = SCR_HEIGHT / 2.0f;
 	
