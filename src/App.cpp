@@ -19,7 +19,7 @@ App::App(unsigned int width, unsigned height)
 		exit(-1);
 	}
 
-	camera = new Camera(glm::vec3(0.0f, 0.0f, 3.0f));
+	camera = new Camera(glm::vec3(0.0f, 2.0f, 12.0f));
 	renderer = new Renderer(camera);
 	renderer->start();
 

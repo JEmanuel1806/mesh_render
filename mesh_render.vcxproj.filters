@@ -40,6 +40,8 @@
   <ItemGroup>
     <None Include="src\shader\obj_render.vert" />
     <None Include="src\shader\obj_render.frag" />
+    <None Include="src\shader\skybox.vert" />
+    <None Include="src\shader\skybox.frag" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Shader.h">

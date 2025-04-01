@@ -5,14 +5,16 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+const unsigned int SCR_WIDTH = 1280;
+const unsigned int SCR_HEIGHT = 720;
 
 enum Camera_Movement {
     FORWARD,
     BACKWARD,
     LEFT,
     RIGHT,
+    UP,
+    DOWN,
     ROTATE_LEFT,   
     ROTATE_RIGHT   
 };

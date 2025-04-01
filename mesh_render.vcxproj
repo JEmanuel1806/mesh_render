@@ -144,6 +144,8 @@
   <ItemGroup>
     <None Include="src\shader\obj_render.frag" />
     <None Include="src\shader\obj_render.vert" />
+    <None Include="src\shader\skybox.frag" />
+    <None Include="src\shader\skybox.vert" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\App.h" />
