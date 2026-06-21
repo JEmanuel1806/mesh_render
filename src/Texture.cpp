@@ -3,6 +3,7 @@
 #include <stb_image.h>
 #include <iostream>
 
+// for textures
 Texture::Texture(const std::string& path, GLenum type) : tex_type(type) {
 	glGenTextures(1, &ID);
 	glBindTexture(type, ID);
@@ -27,6 +28,8 @@ Texture::Texture(const std::string& path, GLenum type) : tex_type(type) {
 	
 }
 
+
+// for skybox
 Texture::Texture(std::vector<std::string>& paths, GLenum type)
 {
     tex_type = type; 
