@@ -1,79 +1,439 @@
 #include "Renderer.h"
 
+float scale = 10.0f; // repeat 10x
+
+
+float skyboxVertices[] = {     
+	-1.0f,  1.0f, -1.0f,
+	-1.0f, -1.0f, -1.0f,
+	 1.0f, -1.0f, -1.0f,
+	 1.0f, -1.0f, -1.0f,
+	 1.0f,  1.0f, -1.0f,
+	-1.0f,  1.0f, -1.0f,
+
+	-1.0f, -1.0f,  1.0f,
+	-1.0f, -1.0f, -1.0f,
+	-1.0f,  1.0f, -1.0f,
+	-1.0f,  1.0f, -1.0f,
+	-1.0f,  1.0f,  1.0f,
+	-1.0f, -1.0f,  1.0f,
+
+	 1.0f, -1.0f, -1.0f,
+	 1.0f, -1.0f,  1.0f,
+	 1.0f,  1.0f,  1.0f,
+	 1.0f,  1.0f,  1.0f,
+	 1.0f,  1.0f, -1.0f,
+	 1.0f, -1.0f, -1.0f,
+
+	-1.0f, -1.0f,  1.0f,
+	-1.0f,  1.0f,  1.0f,
+	 1.0f,  1.0f,  1.0f,
+	 1.0f,  1.0f,  1.0f,
+	 1.0f, -1.0f,  1.0f,
+	-1.0f, -1.0f,  1.0f,
+
+	-1.0f,  1.0f, -1.0f,
+	 1.0f,  1.0f, -1.0f,
+	 1.0f,  1.0f,  1.0f,
+	 1.0f,  1.0f,  1.0f,
+	-1.0f,  1.0f,  1.0f,
+	-1.0f,  1.0f, -1.0f,
+
+	-1.0f, -1.0f, -1.0f,
+	-1.0f, -1.0f,  1.0f,
+	 1.0f, -1.0f, -1.0f,
+	 1.0f, -1.0f, -1.0f,
+	-1.0f, -1.0f,  1.0f,
+	 1.0f, -1.0f,  1.0f
+};
+
+float planeVertices[] = {      
+	-125.0f, 0.0f,  125.0f,
+	 125.0f, 0.0f,  125.0f,
+	-125.0f, 0.0f, -125.0f,			  
+	 125.0f, 0.0f,  125.0f,
+	 125.0f, 0.0f, -125.0f,
+	-125.0f, 0.0f, -125.0f
+};
+
+
+float planeTexCoords[] = {
+	0.0f,      scale,
+	scale,     scale,
+	0.0f,      0.0f,
+	scale,     scale,
+	scale,     0.0f,
+	0.0f,      0.0f
+};
+
+float planeNormals[] = {
+	0.0f, 1.0f, 0.0f,
+	0.0f, 1.0f, 0.0f,
+	0.0f, 1.0f, 0.0f,
+	0.0f, 1.0f, 0.0f,
+	0.0f, 1.0f, 0.0f,
+	0.0f, 1.0f, 0.0f
+};
+
+float quadVertices[] = {
+	-1.0f,  1.0f, 0.0f, 1.0f,
+	-1.0f, -1.0f, 0.0f, 0.0f,
+	 1.0f, -1.0f, 1.0f, 0.0f,
+	-1.0f,  1.0f, 0.0f, 1.0f,
+	 1.0f, -1.0f, 1.0f, 0.0f,
+	 1.0f,  1.0f, 1.0f, 1.0f
+};
+
+
+std::vector<std::string> skyboxFaces = {
+	
+	"textures/skybox/left.jpg",
+	"textures/skybox/right.jpg",
+	"textures/skybox/top.jpg",
+	"textures/skybox/bottom.jpg",
+	"textures/skybox/front.jpg",
+	"textures/skybox/back.jpg"
+};
+
 
 Renderer::Renderer(Camera* cam) {
-	camera = cam;
-	VAO = 0;
-	VBO_position = 0;
-	VBO_texture = 0;
-	EBO = 0;
+	m_pCamera = cam;
+	m_vaoObj = 0;
+	m_vaoSky = 0;
+	m_vboObj = 0;
+	m_vboObjTex = 0;
+	m_vboObjNrml = 0;
+	m_vboPlane = 0;
+	m_vboPlaneTex = 0;
+	m_vboPlaneNrml = 0;
+	m_ebo = 0;
 }
 
 Renderer::~Renderer() {
-	glDeleteVertexArrays(1, &VAO);
-	glDeleteBuffers(1, &VBO_position);
-	glDeleteBuffers(1, &VBO_texture);
+	glDeleteVertexArrays(1, &m_vaoSky);
+	glDeleteVertexArrays(1, &m_vaoObj);
+	glDeleteVertexArrays(1, &m_vaoPlane);
+	glDeleteVertexArrays(1, &m_vaoQuad);
+	glDeleteBuffers(1, &m_vboObj);
+	glDeleteBuffers(1, &m_vboObjTex);
+	glDeleteBuffers(1, &m_vboObjNrml);
+	glDeleteBuffers(1, &m_vboPlane);
+	glDeleteBuffers(1, &m_vboPlaneTex);
+	glDeleteBuffers(1, &m_vboPlaneNrml);
+	glDeleteBuffers(1, &m_vboSky);
+	glDeleteBuffers(1, &m_vboQuad);
+	glDeleteBuffers(1, &m_ebo);
+	glDeleteFramebuffers(1, &m_depthFBO);
+	glDeleteTextures(1, &m_depthTex);
 }
 
 void Renderer::start() {
 
+	shader_depth = new Shader("src/shader/depth_render.vert", "src/shader/depth_render.frag");
+	shader_depth_debug = new Shader("src/shader/depth_debug.vert", "src/shader/depth_debug.frag");
 	shader_render = new Shader("src/shader/obj_render.vert", "src/shader/obj_render.frag");
+	shader_skybox = new Shader("src/shader/skybox.vert", "src/shader/skybox.frag");
 
 	MeshLoader meshLoader;
 
-	mesh = meshLoader.loadMesh("data/trailer-3.obj");
+	m_mesh = meshLoader.loadMesh("data/trailer-3.obj");
 
-	mesh_size = mesh.positions.size();
+	m_meshSize = m_mesh.positions.size();
 
-	texture = new Texture("textures/test.png",GL_TEXTURE_2D);
+	texture = new Texture("textures/test.png", GL_TEXTURE_2D);
+	texture2 = new Texture("textures/test2.png", GL_TEXTURE_2D);
+	texture3 = new Texture("textures/test3.png", GL_TEXTURE_2D);
+	texture4 = new Texture("textures/test4.png", GL_TEXTURE_2D);
+	texture5 = new Texture("textures/test5.png", GL_TEXTURE_2D);
 
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(1, &VBO_position);
-	glGenBuffers(1, &VBO_texture);
-	glBindVertexArray(VAO);
+	textureGround = new Texture("textures/env/concrete-light.jpg", GL_TEXTURE_2D);
 
-	//position buffer
-	glBindBuffer(GL_ARRAY_BUFFER, VBO_position);
-	glBufferData(GL_ARRAY_BUFFER, mesh_size * sizeof(glm::vec3), mesh.positions.data(), GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);                        // position
+	// Lights
+	dirLight = new DirectionalLight(
+		glm::normalize(glm::vec3(0.0f, -1.0f, -1.0f)),
+		glm::vec3(1.0f),
+		1.0f
+	);
+
+	// Background
+	m_skybox = new Texture(skyboxFaces, GL_TEXTURE_CUBE_MAP);
+
+	glGenVertexArrays(1, &m_vaoObj);
+	glGenVertexArrays(1, &m_vaoSky);
+	glGenVertexArrays(1, &m_vaoPlane);
+	glGenVertexArrays(1, &m_vaoQuad);
+
+	glGenBuffers(1, &m_vboObj);
+	glGenBuffers(1, &m_vboObjTex);
+	glGenBuffers(1, &m_vboObjNrml);
+	glGenBuffers(1, &m_vboSky);
+	glGenBuffers(1, &m_vboPlane);
+	glGenBuffers(1, &m_vboPlaneTex);
+	glGenBuffers(1, &m_vboPlaneNrml);
+	glGenBuffers(1, &m_ebo);  
+	glGenBuffers(1, &m_vboQuad);
+
+	// VAO setup for trailer
+	glBindVertexArray(m_vaoObj);
+
+	// Position buffer
+	glBindBuffer(GL_ARRAY_BUFFER, m_vboObj);
+	glBufferData(GL_ARRAY_BUFFER, m_meshSize * sizeof(glm::vec3), m_mesh.positions.data(), GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
 	glEnableVertexAttribArray(0);
 
-
-	//texture buffer
-	glBindBuffer(GL_ARRAY_BUFFER, VBO_texture);
-	glBufferData(GL_ARRAY_BUFFER, mesh_size * sizeof(glm::vec2), mesh.texCoords.data(), GL_STATIC_DRAW);
+	// TexCoord buffer
+	glBindBuffer(GL_ARRAY_BUFFER, m_vboObjTex);
+	glBufferData(GL_ARRAY_BUFFER, m_meshSize * sizeof(glm::vec2), m_mesh.texCoords.data(), GL_STATIC_DRAW);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (void*)0);
 	glEnableVertexAttribArray(1);
 
-	//EBO
-	glGenBuffers(1, &EBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh.indices.size() * sizeof(unsigned int), mesh.indices.data(), GL_STATIC_DRAW);
+	// Normals buffer
+	glBindBuffer(GL_ARRAY_BUFFER, m_vboObjNrml);
+	glBufferData(GL_ARRAY_BUFFER, m_meshSize * sizeof(glm::vec3), m_mesh.normals.data(), GL_STATIC_DRAW);
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+	glEnableVertexAttribArray(2);
 
-	std::cout << "Rendering " << mesh_size << " points.\n";
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_mesh.indices.size() * sizeof(unsigned int), m_mesh.indices.data(), GL_STATIC_DRAW);
+
+	glBindVertexArray(0);
+
+	// VAO setup for quad
+	glBindVertexArray(m_vaoQuad);
+
+	glBindBuffer(GL_ARRAY_BUFFER, m_vboQuad);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE,4 * sizeof(float), (void*)(2 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
+	// VAO for skybox
+	glBindVertexArray(m_vaoSky);
+
+	glBindBuffer(GL_ARRAY_BUFFER, m_vboSky);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), skyboxVertices, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	glBindVertexArray(0); 
+
+	std::cout << "Rendering " << m_meshSize << " points.\n";
 	std::cout << "sizeof(Point): " << sizeof(Mesh) << std::endl;
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
+
+	// VAO setup plane
+	glBindVertexArray(m_vaoPlane);
+
+	// positons
+	glBindBuffer(GL_ARRAY_BUFFER, m_vboPlane);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(planeVertices), planeVertices, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	// texcoords
+	glBindBuffer(GL_ARRAY_BUFFER, m_vboPlaneTex);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(planeTexCoords), planeTexCoords, GL_STATIC_DRAW);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(1);
+
+	// n
+	glBindBuffer(GL_ARRAY_BUFFER, m_vboPlaneNrml);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(planeNormals), planeNormals, GL_STATIC_DRAW);
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(2);
+
+	glBindVertexArray(0);
+
+	// fbo setup
+	glGenFramebuffers(1, &m_depthFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, m_depthFBO);
+
+	glGenTextures(1, &m_depthTex);
+	glBindTexture(GL_TEXTURE_2D, m_depthTex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_depthTex, 0);
+	
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER)
+		!= GL_FRAMEBUFFER_COMPLETE)
+	{
+		std::cout << "Framebuffer not complete.\n";
+	
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	
 }
 
-void Renderer::render()
+void Renderer::render(const float fps)
 {
-	glm::mat4 view = camera->GetViewMatrix();
-	glm::mat4 projection = glm::perspective(glm::radians(camera->Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+	
 
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glm::mat4 view_skybox = glm::mat4(glm::mat3(m_pCamera->GetViewMatrix()));
+	glm::mat4 projection_skybox = glm::perspective(glm::radians(m_pCamera->Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+	glm::mat4 view_object = m_pCamera->GetViewMatrix();
+	glm::mat4 projection_object = glm::perspective(glm::radians(m_pCamera->Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+	glm::mat4 model_object = glm::mat4(1.0f);
+
+	// light mats
+	glm::vec3 lightDir = dirLight->getDirection();
+	glm::vec3 lightPos = -lightDir * 50.0f;
+
+	glm::mat4 lightView = glm::lookAt(lightPos,glm::vec3(0.0f),glm::vec3(0.0f, 1.0f, 0.0f));
+
+	glm::mat4 lightProj = glm::ortho(-30.0f, 30.0f,-30.0f, 30.0f, 1.0f, 100.0f); 
+
+	// ------ Depth Pass ------
+
+	glBindFramebuffer(GL_FRAMEBUFFER, m_depthFBO);
+	glClear(GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
+
+	shader_depth->use();
+	glUniformMatrix4fv(glGetUniformLocation(shader_depth->ID, "lightView"), 1, GL_FALSE, glm::value_ptr(lightView));
+	glUniformMatrix4fv(glGetUniformLocation(shader_depth->ID, "lightProj"), 1, GL_FALSE, glm::value_ptr(lightProj));
+	glUniformMatrix4fv(glGetUniformLocation(shader_depth->ID, "model"), 1, GL_FALSE, glm::value_ptr(model_object));
+
+	glBindVertexArray(m_vaoPlane);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
+
+	glBindVertexArray(m_vaoObj);
+	glDrawElements(GL_TRIANGLES, m_mesh.indices.size(), GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	/*
+	// ------ Depth Debug Pass -------
+	glDisable(GL_DEPTH_TEST);
+	shader_depth_debug->use();
+
+	glActiveTexture(GL_TEXTURE7);
+	glBindTexture(GL_TEXTURE_2D, m_depthTex);
+
+	glUniform1i(glGetUniformLocation(shader_depth_debug->ID, "depthTex"), 7);
+
+	glBindVertexArray(m_vaoQuad);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
+	*/
+
+	// ------ Render Pass ------
+
+	glActiveTexture(GL_TEXTURE7);
+	glBindTexture(GL_TEXTURE_2D, m_depthTex);
+
+	// skybox
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glDepthFunc(GL_LEQUAL);
+	glDepthMask(GL_FALSE);
+
+	glEnable(GL_DEPTH_TEST);
+
+	shader_skybox->use();
+
+	glUniformMatrix4fv(glGetUniformLocation(shader_skybox->ID, "view"), 1, GL_FALSE, glm::value_ptr(view_skybox));
+	glUniformMatrix4fv(glGetUniformLocation(shader_skybox->ID, "proj"), 1, GL_FALSE, glm::value_ptr(projection_skybox));
+
+	glBindVertexArray(m_vaoSky);
+
+	m_skybox->bind_texture(0);
+	glUniform1i(glGetUniformLocation(shader_skybox->ID, "skybox"), 0);
+
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+	glBindVertexArray(0);
+
+	glDepthMask(GL_TRUE);
+	glDepthFunc(GL_LESS);
+
+	// plane for ground
+
+	glEnable(GL_DEPTH_TEST);
+	
+	shader_render->use();
+	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "view"), 1, GL_FALSE, glm::value_ptr(view_object));
+	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "proj"), 1, GL_FALSE, glm::value_ptr(projection_object));
+	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "model"), 1, GL_FALSE, glm::value_ptr(model_object));
+	glUniform3fv(glGetUniformLocation(shader_render->ID, "lightDir"), 1, glm::value_ptr(dirLight->getDirection()));
+	glUniform3fv(glGetUniformLocation(shader_render->ID, "color"), 1, glm::value_ptr(dirLight->getColor()));
+	glUniform1f(glGetUniformLocation(shader_render->ID, "intensity"), dirLight->getIntensity());
+	glUniform3fv(glGetUniformLocation(shader_render->ID, "viewPos"), 1, glm::value_ptr(m_pCamera->Position));
+	glUniform1i(glGetUniformLocation(shader_render->ID, "depthTex"), 7);
+
+	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "lightView"), 1, GL_FALSE, glm::value_ptr(lightView));
+	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "lightProj"), 1, GL_FALSE, glm::value_ptr(lightProj));
+
+	glBindVertexArray(m_vaoPlane);
+
+	textureGround->bind_texture(6);
+
+	glUniform1i(glGetUniformLocation(shader_render->ID, "tex"), 6);
+
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+
+	glBindVertexArray(0);
+
+	// trailer rendering
 
 	shader_render->use();
 
-	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "view"), 1, GL_FALSE, glm::value_ptr(view));
-	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "proj"), 1, GL_FALSE, glm::value_ptr(projection));
+	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "view"), 1, GL_FALSE, glm::value_ptr(view_object));
+	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "proj"), 1, GL_FALSE, glm::value_ptr(projection_object));
+	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "model"), 1, GL_FALSE, glm::value_ptr(model_object));
+	glUniform3fv(glGetUniformLocation(shader_render->ID, "lightDir"), 1, glm::value_ptr(dirLight->getDirection()));
+	glUniform3fv(glGetUniformLocation(shader_render->ID, "color"),  1, glm::value_ptr(dirLight->getColor()));
+	glUniform1f(glGetUniformLocation(shader_render->ID, "intensity"), dirLight->getIntensity());
+	glUniform3fv(glGetUniformLocation(shader_render->ID, "viewPos"), 1, glm::value_ptr(m_pCamera->Position));
 
-	glBindVertexArray(VAO);
-	texture->bind_texture(0);
-	glUniform1i(glGetUniformLocation(shader_render->ID, "tex"), 0);
-	glDrawElements(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_INT, 0);
+	glBindVertexArray(m_vaoObj);
+
+	texture->bind_texture(1);
+	texture2->bind_texture(2);
+	texture3->bind_texture(3);
+	texture4->bind_texture(4);
+	texture5->bind_texture(5);
+
+	glUniform1i(glGetUniformLocation(shader_render->ID, "tex"), m_textureSlot);
+	glDrawElements(GL_TRIANGLES, m_mesh.indices.size(), GL_UNSIGNED_INT, 0);
+
 	glBindVertexArray(0);
+
+	RenderText(fps);
+	
 }
 
+void Renderer::RenderText(const float fps)
+{
+	glUseProgram(0);
+
+	// debug text
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glLoadIdentity();
+	glOrtho(0, SCR_WIDTH, SCR_HEIGHT, 0, -1, 1);
+
+	std::stringstream ss;
+	ss << "FPS: " << fps << "\nTris: " << m_mesh.indices.size();
+	std::string text = ss.str();
+
+	static char buffer[99999];
+	int num_quads = stb_easy_font_print(20, 20, (char*)text.c_str(), NULL, buffer, sizeof(buffer));
+
+	glColor3f(1.0f, 1.0f, 0.0f);
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glVertexPointer(2, GL_FLOAT, 16, buffer);
+	glDrawArrays(GL_QUADS, 0, num_quads * 4);
+	glDisableClientState(GL_VERTEX_ARRAY);
+}

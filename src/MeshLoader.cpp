@@ -49,15 +49,15 @@ Mesh MeshLoader::loadMesh(std::string filepath)
                 std::getline(vss, n, '/');
 
                 Vertex vertex;
-                vertex.position = temp_positions[std::stoi(v) - 1];
-                vertex.texCoord = t.empty() ? glm::vec2(0.0f) : temp_texcoords[std::stoi(t) - 1];
-                vertex.normal = n.empty() ? glm::vec3(0.0f) : temp_normals[std::stoi(n) - 1];
+                vertex.m_position = temp_positions[std::stoi(v) - 1];
+                vertex.m_texCoord = t.empty() ? glm::vec2(0.0f) : temp_texcoords[std::stoi(t) - 1];
+                vertex.m_normal = n.empty() ? glm::vec3(0.0f) : temp_normals[std::stoi(n) - 1];
 
                 if (uniqueVertices.count(vertex) == 0) {
                     uniqueVertices[vertex] = static_cast<unsigned int>(obj_mesh.positions.size());
-                    obj_mesh.positions.push_back(vertex.position);
-                    obj_mesh.texCoords.push_back(vertex.texCoord);
-                    obj_mesh.normals.push_back(vertex.normal);
+                    obj_mesh.positions.push_back(vertex.m_position);
+                    obj_mesh.texCoords.push_back(vertex.m_texCoord);
+                    obj_mesh.normals.push_back(vertex.m_normal);
                 }
 
                 obj_mesh.indices.push_back(uniqueVertices[vertex]);
