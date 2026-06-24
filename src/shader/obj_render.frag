@@ -5,7 +5,13 @@ in vec3 Normal;
 in vec3 FragPos;
 in vec4 vertLightPos;
 
-out vec4 FragColor;
+in vec3 NormalViewSpace;
+in vec3 PositionViewSpace;
+
+layout(location = 0) out vec4 FragColor;
+layout(location = 1) out vec4 normalTex;
+layout(location = 2) out vec4 posTex;
+
 
 uniform sampler2D tex;
 uniform sampler2D depthTex;
@@ -63,10 +69,13 @@ void main()
             }
         }
 
-        shadow /= 9.0;
+        shadow /= 25.0;
     }
 
     vec3 lighting = ambient + (1.0 - shadow*0.2) * (diffuse + specular);
 
+    normalTex = vec4(NormalViewSpace, 1.0f);
+    posTex = vec4(PositionViewSpace, 1.0f);
     FragColor = vec4(lighting, 1.0) * textureColor * intensity;
+
 }

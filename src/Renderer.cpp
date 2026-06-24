@@ -123,8 +123,15 @@ Renderer::~Renderer() {
 	glDeleteBuffers(1, &m_vboSky);
 	glDeleteBuffers(1, &m_vboQuad);
 	glDeleteBuffers(1, &m_ebo);
-	glDeleteFramebuffers(1, &m_depthFBO);
+	glDeleteFramebuffers(1, &m_fboDepth);
+	glDeleteFramebuffers(1, &m_fboScene);
+	glDeleteFramebuffers(1, &m_fboSSAO);
 	glDeleteTextures(1, &m_depthTex);
+	glDeleteTextures(1, &m_gColorTex);
+	glDeleteTextures(1, &m_gNormalTex);
+	glDeleteTextures(1, &m_gPosTex);
+	glDeleteTextures(1, &m_gDepthTex);
+	glDeleteTextures(1, &m_ssaoTex);
 }
 
 void Renderer::start() {
@@ -133,10 +140,12 @@ void Renderer::start() {
 	shader_depth_debug = new Shader("src/shader/depth_debug.vert", "src/shader/depth_debug.frag");
 	shader_render = new Shader("src/shader/obj_render.vert", "src/shader/obj_render.frag");
 	shader_skybox = new Shader("src/shader/skybox.vert", "src/shader/skybox.frag");
+	shader_ssao_calc = new Shader("src/shader/ssao_calc.vert", "src/shader/ssao_calc.frag");
+	shader_ssao_blur = new Shader("src/shader/ssao_blur.vert", "src/shader/ssao_blur.frag");
 
 	MeshLoader meshLoader;
 
-	m_mesh = meshLoader.loadMesh("data/trailer-3.obj");
+	m_mesh = meshLoader.loadMesh("data/trailer60s.obj");
 
 	m_meshSize = m_mesh.positions.size();
 
@@ -249,9 +258,9 @@ void Renderer::start() {
 
 	glBindVertexArray(0);
 
-	// fbo setup
-	glGenFramebuffers(1, &m_depthFBO);
-	glBindFramebuffer(GL_FRAMEBUFFER, m_depthFBO);
+	// depth fbo setup
+	glGenFramebuffers(1, &m_fboDepth);
+	glBindFramebuffer(GL_FRAMEBUFFER, m_fboDepth);
 
 	glGenTextures(1, &m_depthTex);
 	glBindTexture(GL_TEXTURE_2D, m_depthTex);
@@ -261,8 +270,6 @@ void Renderer::start() {
 
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_depthTex, 0);
 	
-	glDrawBuffer(GL_NONE);
-	glReadBuffer(GL_NONE);
 
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER)
 		!= GL_FRAMEBUFFER_COMPLETE)
@@ -272,7 +279,87 @@ void Renderer::start() {
 	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	
+
+	// scene g-buffer setup for ssao
+	glGenFramebuffers(1, &m_fboScene);
+	glBindFramebuffer(GL_FRAMEBUFFER, m_fboScene);
+
+	glGenTextures(1, &m_gColorTex);
+	glBindTexture(GL_TEXTURE_2D, m_gColorTex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_gColorTex, 0);
+
+	glGenTextures(1, &m_gNormalTex);
+	glBindTexture(GL_TEXTURE_2D, m_gNormalTex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, m_gNormalTex, 0);
+
+	glGenTextures(1, &m_gPosTex);
+	glBindTexture(GL_TEXTURE_2D, m_gPosTex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, m_gPosTex, 0);
+
+	glGenTextures(1, &m_gDepthTex);
+	glBindTexture(GL_TEXTURE_2D, m_gDepthTex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_gDepthTex, 0);
+
+	GLenum drawBuffers[] = {
+	GL_COLOR_ATTACHMENT0,
+	GL_COLOR_ATTACHMENT1,
+	GL_COLOR_ATTACHMENT2
+	};
+
+	glDrawBuffers(3, drawBuffers);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER)
+		!= GL_FRAMEBUFFER_COMPLETE)
+	{
+		std::cout << "Framebuffer not complete.\n";
+
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	// ssao fbo setup
+	glGenFramebuffers(1, &m_fboSSAO);
+	glBindFramebuffer(GL_FRAMEBUFFER, m_fboSSAO);
+
+	glGenTextures(1, &m_ssaoTex);
+	glBindTexture(GL_TEXTURE_2D, m_ssaoTex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RED, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_ssaoTex, 0);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER)
+		!= GL_FRAMEBUFFER_COMPLETE)
+	{
+		std::cout << "Framebuffer not complete.\n";
+
+	}
+
+	m_ssaoPoints = generateRandomVecs();
+	m_noiseValues = generateNoise();
+
+	glGenTextures(1, &m_noiseTex);
+	glBindTexture(GL_TEXTURE_2D, m_noiseTex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, 4, 4, 0, GL_RG, GL_FLOAT, m_noiseValues.data());
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void Renderer::render(const float fps)
@@ -293,9 +380,9 @@ void Renderer::render(const float fps)
 
 	glm::mat4 lightProj = glm::ortho(-30.0f, 30.0f,-30.0f, 30.0f, 1.0f, 100.0f); 
 
-	// ------ Depth Pass ------
+	// ------ Depth Pass for Shadowmapping (Light Perspective) ------
 
-	glBindFramebuffer(GL_FRAMEBUFFER, m_depthFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, m_fboDepth);
 	glClear(GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 
@@ -312,8 +399,6 @@ void Renderer::render(const float fps)
 	glDrawElements(GL_TRIANGLES, m_mesh.indices.size(), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
 	/*
 	// ------ Depth Debug Pass -------
 	glDisable(GL_DEPTH_TEST);
@@ -329,7 +414,9 @@ void Renderer::render(const float fps)
 	glBindVertexArray(0);
 	*/
 
-	// ------ Render Pass ------
+	// ------ Scene Pass to FBO ------
+
+	glBindFramebuffer(GL_FRAMEBUFFER, m_fboScene);
 
 	glActiveTexture(GL_TEXTURE7);
 	glBindTexture(GL_TEXTURE_2D, m_depthTex);
@@ -399,23 +486,76 @@ void Renderer::render(const float fps)
 
 	glBindVertexArray(m_vaoObj);
 
-	texture->bind_texture(1);
-	texture2->bind_texture(2);
-	texture3->bind_texture(3);
-	texture4->bind_texture(4);
-	texture5->bind_texture(5);
+	texture->bind_texture(0);
+	texture2->bind_texture(1);
+	texture3->bind_texture(2);
+	texture4->bind_texture(3);
+	texture5->bind_texture(4);
 
 	glUniform1i(glGetUniformLocation(shader_render->ID, "tex"), m_textureSlot);
 	glDrawElements(GL_TRIANGLES, m_mesh.indices.size(), GL_UNSIGNED_INT, 0);
 
 	glBindVertexArray(0);
 
-	RenderText(fps);
 	
+	/*
+	// Debug Scene Pass to Screen 
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glDisable(GL_DEPTH_TEST);
+	shader_depth_debug->use();
+
+	glActiveTexture(GL_TEXTURE8);
+	glBindTexture(GL_TEXTURE_2D, m_gColorTex);
+
+	glUniform1i(glGetUniformLocation(shader_depth_debug->ID, "colorTex"), 8);
+
+	glBindVertexArray(m_vaoQuad);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
+	*/
+	
+
+	// ------ SSAO ------
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glDisable(GL_DEPTH_TEST);
+	
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, m_noiseTex);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, m_gNormalTex);
+
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, m_gPosTex);
+
+	shader_ssao_calc->use();
+
+	glUniform1i(glGetUniformLocation(shader_ssao_calc->ID, "noiseTex"), 0);
+	glUniform1i(glGetUniformLocation(shader_ssao_calc->ID, "normalTex"), 1);
+	glUniform1i(glGetUniformLocation(shader_ssao_calc->ID, "posTex"), 2);
+	glUniformMatrix4fv(glGetUniformLocation(shader_ssao_calc->ID, "proj"), 1, GL_FALSE, glm::value_ptr(projection_object));
+	glUniform1f(glGetUniformLocation(shader_ssao_calc->ID, "radius"), 1.0);
+	glUniform1f(glGetUniformLocation(shader_ssao_calc->ID, "bias"), 0.025);
+	glUniform2f(glGetUniformLocation(shader_ssao_calc->ID, "noiseScale"),  SCR_WIDTH / 4, SCR_HEIGHT/4);
+	
+	glUniform3fv(glGetUniformLocation(shader_ssao_calc->ID, "samples[0]"),static_cast<GLsizei>(m_ssaoPoints.size()),glm::value_ptr(m_ssaoPoints[0]));
+
+	glBindVertexArray(m_vaoQuad);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
+
+	// ------ Blur Pass for SSAO ------
+
+	// ------ Final Render Pass to Screen ------
+
 }
 
 void Renderer::RenderText(const float fps)
 {
+
+	std::vector<glm::vec3> m_ssaoKernel;
+
 	glUseProgram(0);
 
 	// debug text
@@ -436,4 +576,37 @@ void Renderer::RenderText(const float fps)
 	glVertexPointer(2, GL_FLOAT, 16, buffer);
 	glDrawArrays(GL_QUADS, 0, num_quads * 4);
 	glDisableClientState(GL_VERTEX_ARRAY);
+}
+
+std::vector<glm::vec3> Renderer::generateRandomVecs(){
+	std::vector <glm::vec3> randomVecs;
+	std::mt19937 generator(1337);
+	std::uniform_real_distribution<float> randomFloat(0.0f, 1.0f);
+
+	for (int i = 0; i < 64; i++) {
+		glm::vec3 randomVec(
+			randomFloat(generator) * 2.0f - 1.0f,
+			randomFloat(generator) * 2.0f - 1.0f,
+			randomFloat(generator)
+		);
+		randomVec = glm::normalize(randomVec);
+		randomVec *= randomFloat(generator);
+		randomVecs.push_back(randomVec);
+	}
+
+	return randomVecs;
+}
+
+std::vector<glm::vec2> Renderer::generateNoise() {
+	std::vector<glm::vec2> noise;
+	std::mt19937 generator(1337);
+	std::uniform_real_distribution<float> randomFloat(0.0f, 1.0f);
+	for (int i = 0; i < 16; i++) {
+		glm::vec2 randomVec(
+			randomFloat(generator) * 2.0f - 1.0f,
+			randomFloat(generator) * 2.0f - 1.0f
+		);
+		noise.push_back(randomVec);
+	}
+	return noise;
 }

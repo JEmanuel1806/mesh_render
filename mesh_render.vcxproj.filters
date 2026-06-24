@@ -58,6 +58,8 @@
     <None Include="src\shader\depth_render.frag" />
     <None Include="src\shader\depth_debug.vert" />
     <None Include="src\shader\depth_debug.frag" />
+    <None Include="src\shader\ssao_calc.vert" />
+    <None Include="src\shader\ssao_calc.frag" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Shader.h">

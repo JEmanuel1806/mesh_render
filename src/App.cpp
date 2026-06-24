@@ -1,5 +1,7 @@
 #include "App.h"
 
+#include <string>
+
 App::App(unsigned int width, unsigned int height) {
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW" << std::endl;
@@ -33,10 +35,25 @@ App::~App() {
 }
 
 void App::run() {
+    double fpsUpdateTime = glfwGetTime();
+    unsigned int framesSinceUpdate = 0;
+
     while (!glfwWindowShouldClose(window)) {
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
+
+        ++framesSinceUpdate;
+        double fpsElapsed = currentFrame - fpsUpdateTime;
+        if (fpsElapsed >= 0.5) {
+            double averageFps = framesSinceUpdate / fpsElapsed;
+            std::string title = "Mesh Renderer | FPS: " +
+                std::to_string(static_cast<int>(averageFps + 0.5));
+            glfwSetWindowTitle(window, title.c_str());
+
+            framesSinceUpdate = 0;
+            fpsUpdateTime = currentFrame;
+        }
 
         processInput(window);
 

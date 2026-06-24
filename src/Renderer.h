@@ -11,6 +11,9 @@
 #define STB_EASY_FONT_IMPLEMENTATION
 #include "stb_easy_font.h"
 
+#include <random>
+#include <vector>
+
 class Renderer {
 
 public:
@@ -67,19 +70,28 @@ private:
 	Texture *texture, *texture2, *texture3, *texture4, *texture5;
 	Texture* textureGround;
 	Texture* m_skybox;
+
 	GLuint m_depthTex;
+	GLuint m_gColorTex, m_gNormalTex, m_gPosTex, m_gDepthTex;
+	GLuint m_ssaoTex;
+	GLuint m_noiseTex;
+	
 	Shader* shader_render, *shader_skybox, *shader_depth, *shader_depth_debug;
+	Shader* shader_ssao_calc, * shader_ssao_blur;
 
 	GLuint m_vaoObj, m_vboObj, m_vboObjTex, m_vboObjNrml;
 	GLuint m_vaoSky, m_vboSky;
 	GLuint m_vaoPlane, m_vboPlane, m_vboPlaneTex, m_vboPlaneNrml;
 	GLuint m_vaoQuad, m_vboQuad;
 	GLuint m_ebo;
-	GLuint m_depthFBO;
+	GLuint m_fboDepth, m_fboScene, m_fboSSAO, m_fboBlur;
+
+	std::vector<glm::vec3> m_ssaoPoints;
+	std::vector<glm::vec2> m_noiseValues;
 
 	DirectionalLight* dirLight;
-
+		
 	void RenderText(const float fps);
-
-
+	std::vector<glm::vec3> generateRandomVecs();
+	std::vector<glm::vec2> generateNoise();
 };

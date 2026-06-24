@@ -8,6 +8,9 @@ out vec3 Normal;
 out vec3 FragPos; 
 out vec4 vertLightPos;
 
+out vec3 NormalViewSpace;
+out vec3 PositionViewSpace;
+
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 proj;
@@ -24,4 +27,8 @@ void main() {
 
     gl_Position = proj * view * worldPosition;
     vertLightPos = lightProj * lightView * worldPosition;
+
+    NormalViewSpace = mat3(transpose(inverse(view * model))) * aNormal;
+    PositionViewSpace = (view * worldPosition).xyz;
+
 }
