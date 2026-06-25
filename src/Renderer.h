@@ -73,11 +73,12 @@ private:
 
 	GLuint m_depthTex;
 	GLuint m_gColorTex, m_gNormalTex, m_gPosTex, m_gDepthTex;
-	GLuint m_ssaoTex;
+	GLuint m_ssaoTex, m_ssaoBlurTex;
 	GLuint m_noiseTex;
 	
 	Shader* shader_render, *shader_skybox, *shader_depth, *shader_depth_debug;
 	Shader* shader_ssao_calc, * shader_ssao_blur;
+	Shader* shader_final;
 
 	GLuint m_vaoObj, m_vboObj, m_vboObjTex, m_vboObjNrml;
 	GLuint m_vaoSky, m_vboSky;

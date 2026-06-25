@@ -138,10 +138,11 @@ void Renderer::start() {
 
 	shader_depth = new Shader("src/shader/depth_render.vert", "src/shader/depth_render.frag");
 	shader_depth_debug = new Shader("src/shader/depth_debug.vert", "src/shader/depth_debug.frag");
-	shader_render = new Shader("src/shader/obj_render.vert", "src/shader/obj_render.frag");
+	shader_render = new Shader("src/shader/scene_render.vert", "src/shader/scene_render.frag");
 	shader_skybox = new Shader("src/shader/skybox.vert", "src/shader/skybox.frag");
 	shader_ssao_calc = new Shader("src/shader/ssao_calc.vert", "src/shader/ssao_calc.frag");
 	shader_ssao_blur = new Shader("src/shader/ssao_blur.vert", "src/shader/ssao_blur.frag");
+	shader_final = new Shader("src/shader/final_render.vert", "src/shader/final_render.frag");
 
 	MeshLoader meshLoader;
 
@@ -323,7 +324,7 @@ void Renderer::start() {
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER)
 		!= GL_FRAMEBUFFER_COMPLETE)
 	{
-		std::cout << "Framebuffer not complete.\n";
+		std::cout << "G-Buffer not complete.\n";
 
 	}
 
@@ -344,12 +345,33 @@ void Renderer::start() {
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER)
 		!= GL_FRAMEBUFFER_COMPLETE)
 	{
-		std::cout << "Framebuffer not complete.\n";
+		std::cout << "SSAO Framebuffer not complete.\n";
 
 	}
 
 	m_ssaoPoints = generateRandomVecs();
 	m_noiseValues = generateNoise();
+
+	// blur fbo
+
+	glGenFramebuffers(1, &m_fboBlur);
+	glBindFramebuffer(GL_FRAMEBUFFER, m_fboBlur);
+
+	glGenTextures(1, &m_ssaoBlurTex);
+	glBindTexture(GL_TEXTURE_2D, m_ssaoBlurTex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_ssaoBlurTex, 0);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER)
+		!= GL_FRAMEBUFFER_COMPLETE)
+	{
+		std::cout << "Blur Framebuffer not complete.\n";
+
+	}
+
 
 	glGenTextures(1, &m_noiseTex);
 	glBindTexture(GL_TEXTURE_2D, m_noiseTex);
@@ -517,7 +539,7 @@ void Renderer::render(const float fps)
 	
 
 	// ------ SSAO ------
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, m_fboSSAO);
 	glDisable(GL_DEPTH_TEST);
 	
 	glActiveTexture(GL_TEXTURE0);
@@ -535,7 +557,7 @@ void Renderer::render(const float fps)
 	glUniform1i(glGetUniformLocation(shader_ssao_calc->ID, "normalTex"), 1);
 	glUniform1i(glGetUniformLocation(shader_ssao_calc->ID, "posTex"), 2);
 	glUniformMatrix4fv(glGetUniformLocation(shader_ssao_calc->ID, "proj"), 1, GL_FALSE, glm::value_ptr(projection_object));
-	glUniform1f(glGetUniformLocation(shader_ssao_calc->ID, "radius"), 1.0);
+	glUniform1f(glGetUniformLocation(shader_ssao_calc->ID, "radius"), 0.5);
 	glUniform1f(glGetUniformLocation(shader_ssao_calc->ID, "bias"), 0.025);
 	glUniform2f(glGetUniformLocation(shader_ssao_calc->ID, "noiseScale"),  SCR_WIDTH / 4, SCR_HEIGHT/4);
 	
@@ -547,7 +569,33 @@ void Renderer::render(const float fps)
 
 	// ------ Blur Pass for SSAO ------
 
+	glBindFramebuffer(GL_FRAMEBUFFER, m_fboBlur);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, m_ssaoTex);
+
+	shader_ssao_blur->use();
+	glUniform1i(glGetUniformLocation(shader_ssao_blur->ID, "ssaoTex"), 0);
+
+	glBindVertexArray(m_vaoQuad);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
+
 	// ------ Final Render Pass to Screen ------
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, m_ssaoBlurTex);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, m_gColorTex);
+
+	shader_final->use();
+	glUniform1i(glGetUniformLocation(shader_final->ID, "ssaoBlurTex"), 0);
+	glUniform1i(glGetUniformLocation(shader_final->ID, "colorTex"), 1);
+
+	glBindVertexArray(m_vaoQuad);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
 
 }
 

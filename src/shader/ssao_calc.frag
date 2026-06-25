@@ -43,9 +43,7 @@ void main() {
 
 			float depthSample = texture(posTex, sampleScreen.xy).z;
 
-			if (depthSample < currentSample.z){
-				aoValue += 1.0f;
-			}
+			aoValue += (depthSample <= currentSample.z + bias ? 1.0 : 0.0);
 		}
 		aoValue = aoValue/64.0f;
 

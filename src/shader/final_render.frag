@@ -1,32 +1,29 @@
-#version 440 core
+#version 440 core 
+
+uniform sampler2D ssaoBlurTex;
+uniform sampler2D colorTex;
 
 in vec2 TexCoord;
 in vec3 Normal;
 in vec3 FragPos;
 in vec4 vertLightPos;
 
-in vec3 NormalViewSpace;
-in vec3 PositionViewSpace;
-
-layout(location = 0) out vec4 FragColor;
-layout(location = 1) out vec4 normalTex;
-layout(location = 2) out vec4 posTex;
-
-
-uniform sampler2D tex;
-uniform sampler2D depthTex;
-
 uniform vec3 lightDir;
 uniform vec3 color;
 uniform float intensity;
 uniform vec3 viewPos;
 
+uniform sampler2D tex;
+uniform sampler2D depthTex;
+
 float ambientStrength = 0.1f;
 float shininess = 32.0f;
 
-void main()
-{
-    vec3 norm = normalize(Normal);
+out vec4 FragColor;
+
+void main(){
+
+	vec3 norm = normalize(Normal);
     vec3 lightDirNorm = normalize(lightDir);
 
     vec3 viewDir = normalize(viewPos - FragPos);
@@ -48,6 +45,7 @@ void main()
     float currentDepth = normalizedCoords.z;
     float shadow = 0.0;
 
+    
     bool insideShadowMap =
         normalizedCoords.x >= 0.0 && normalizedCoords.x <= 1.0 &&
         normalizedCoords.y >= 0.0 && normalizedCoords.y <= 1.0 &&
@@ -72,10 +70,6 @@ void main()
         shadow /= 25.0;
     }
 
-    vec3 lighting = ambient + (1.0 - shadow*0.2) * (diffuse + specular);
-
-    normalTex = vec4(NormalViewSpace, 1.0f);
-    posTex = vec4(PositionViewSpace, 1.0f);
     FragColor = vec4(lighting, 1.0) * textureColor * intensity;
 
 }

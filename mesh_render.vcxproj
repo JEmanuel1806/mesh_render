@@ -150,10 +150,14 @@
     <None Include="src\shader\depth_debug.vert" />
     <None Include="src\shader\depth_render.frag" />
     <None Include="src\shader\depth_render.vert" />
+    <None Include="src\shader\final_render.frag" />
+    <None Include="src\shader\final_render.vert" />
+    <None Include="src\shader\ssao_blur.frag" />
+    <None Include="src\shader\ssao_blur.vert" />
     <None Include="src\shader\ssao_calc.frag" />
     <None Include="src\shader\ssao_calc.vert" />
-    <None Include="src\shader\obj_render.frag" />
-    <None Include="src\shader\obj_render.vert" />
+    <None Include="src\shader\scene_render.frag" />
+    <None Include="src\shader\scene_render.vert" />
     <None Include="src\shader\skybox.frag" />
     <None Include="src\shader\skybox.vert" />
   </ItemGroup>
