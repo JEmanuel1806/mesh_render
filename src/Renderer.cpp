@@ -98,15 +98,46 @@ std::vector<std::string> skyboxFaces = {
 
 Renderer::Renderer(Camera* cam) {
 	m_pCamera = cam;
+	texture = nullptr;
+	texture2 = nullptr;
+	texture3 = nullptr;
+	texture4 = nullptr;
+	texture5 = nullptr;
+	textureGround = nullptr;
+	m_skybox = nullptr;
+	shader_render = nullptr;
+	shader_skybox = nullptr;
+	shader_depth = nullptr;
+	shader_depth_debug = nullptr;
+	shader_ssao_calc = nullptr;
+	shader_ssao_blur = nullptr;
+	shader_final = nullptr;
+	dirLight = nullptr;
 	m_vaoObj = 0;
 	m_vaoSky = 0;
+	m_vaoPlane = 0;
+	m_vaoQuad = 0;
 	m_vboObj = 0;
 	m_vboObjTex = 0;
 	m_vboObjNrml = 0;
+	m_vboSky = 0;
 	m_vboPlane = 0;
 	m_vboPlaneTex = 0;
 	m_vboPlaneNrml = 0;
+	m_vboQuad = 0;
 	m_ebo = 0;
+	m_fboShadowMap = 0;
+	m_fboScene = 0;
+	m_fboSSAO = 0;
+	m_fboBlur = 0;
+	m_shadowTex = 0;
+	m_gColorTex = 0;
+	m_gNormalTex = 0;
+	m_gPosTex = 0;
+	m_gDepthTex = 0;
+	m_ssaoTex = 0;
+	m_ssaoBlurTex = 0;
+	m_noiseTex = 0;
 }
 
 Renderer::~Renderer() {
@@ -123,15 +154,33 @@ Renderer::~Renderer() {
 	glDeleteBuffers(1, &m_vboSky);
 	glDeleteBuffers(1, &m_vboQuad);
 	glDeleteBuffers(1, &m_ebo);
-	glDeleteFramebuffers(1, &m_fboDepth);
+	glDeleteFramebuffers(1, &m_fboShadowMap);
 	glDeleteFramebuffers(1, &m_fboScene);
 	glDeleteFramebuffers(1, &m_fboSSAO);
-	glDeleteTextures(1, &m_depthTex);
+	glDeleteFramebuffers(1, &m_fboBlur);
+	glDeleteTextures(1, &m_shadowTex);
 	glDeleteTextures(1, &m_gColorTex);
 	glDeleteTextures(1, &m_gNormalTex);
 	glDeleteTextures(1, &m_gPosTex);
 	glDeleteTextures(1, &m_gDepthTex);
 	glDeleteTextures(1, &m_ssaoTex);
+	glDeleteTextures(1, &m_ssaoBlurTex);
+	glDeleteTextures(1, &m_noiseTex);
+	delete texture;
+	delete texture2;
+	delete texture3;
+	delete texture4;
+	delete texture5;
+	delete textureGround;
+	delete m_skybox;
+	delete shader_render;
+	delete shader_skybox;
+	delete shader_depth;
+	delete shader_depth_debug;
+	delete shader_ssao_calc;
+	delete shader_ssao_blur;
+	delete shader_final;
+	delete dirLight;
 }
 
 void Renderer::start() {
@@ -260,16 +309,18 @@ void Renderer::start() {
 	glBindVertexArray(0);
 
 	// depth fbo setup
-	glGenFramebuffers(1, &m_fboDepth);
-	glBindFramebuffer(GL_FRAMEBUFFER, m_fboDepth);
+	glGenFramebuffers(1, &m_fboShadowMap);
+	glBindFramebuffer(GL_FRAMEBUFFER, m_fboShadowMap);
 
-	glGenTextures(1, &m_depthTex);
-	glBindTexture(GL_TEXTURE_2D, m_depthTex);
+	glGenTextures(1, &m_shadowTex);
+	glBindTexture(GL_TEXTURE_2D, m_shadowTex);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_depthTex, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_shadowTex, 0);
 	
 
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER)
@@ -388,30 +439,33 @@ void Renderer::render(const float fps)
 {
 	
 
-	glm::mat4 view_skybox = glm::mat4(glm::mat3(m_pCamera->GetViewMatrix()));
-	glm::mat4 projection_skybox = glm::perspective(glm::radians(m_pCamera->Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-	glm::mat4 view_object = m_pCamera->GetViewMatrix();
-	glm::mat4 projection_object = glm::perspective(glm::radians(m_pCamera->Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-	glm::mat4 model_object = glm::mat4(1.0f);
+	glm::mat4 viewSkybox = glm::mat4(glm::mat3(m_pCamera->GetViewMatrix()));
+	glm::mat4 projSkybox = glm::perspective(glm::radians(m_pCamera->Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+	glm::mat4 viewCamera = m_pCamera->GetViewMatrix();
+	glm::mat4 projCamera = glm::perspective(glm::radians(m_pCamera->Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+	glm::mat4 modelCamera = glm::mat4(1.0f);
+
+	glm::mat4 viewCameraInv = glm::inverse(viewCamera);
 
 	// light mats
 	glm::vec3 lightDir = dirLight->getDirection();
+	glm::vec3 lightDirView = glm::normalize(glm::vec3(viewCamera * glm::vec4(lightDir, 0.0f)));
 	glm::vec3 lightPos = -lightDir * 50.0f;
 
+	// for shadowmap
 	glm::mat4 lightView = glm::lookAt(lightPos,glm::vec3(0.0f),glm::vec3(0.0f, 1.0f, 0.0f));
-
 	glm::mat4 lightProj = glm::ortho(-30.0f, 30.0f,-30.0f, 30.0f, 1.0f, 100.0f); 
 
 	// ------ Depth Pass for Shadowmapping (Light Perspective) ------
 
-	glBindFramebuffer(GL_FRAMEBUFFER, m_fboDepth);
+	glBindFramebuffer(GL_FRAMEBUFFER, m_fboShadowMap);
 	glClear(GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 
 	shader_depth->use();
 	glUniformMatrix4fv(glGetUniformLocation(shader_depth->ID, "lightView"), 1, GL_FALSE, glm::value_ptr(lightView));
 	glUniformMatrix4fv(glGetUniformLocation(shader_depth->ID, "lightProj"), 1, GL_FALSE, glm::value_ptr(lightProj));
-	glUniformMatrix4fv(glGetUniformLocation(shader_depth->ID, "model"), 1, GL_FALSE, glm::value_ptr(model_object));
+	glUniformMatrix4fv(glGetUniformLocation(shader_depth->ID, "model"), 1, GL_FALSE, glm::value_ptr(modelCamera));
 
 	glBindVertexArray(m_vaoPlane);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -421,27 +475,9 @@ void Renderer::render(const float fps)
 	glDrawElements(GL_TRIANGLES, m_mesh.indices.size(), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 
-	/*
-	// ------ Depth Debug Pass -------
-	glDisable(GL_DEPTH_TEST);
-	shader_depth_debug->use();
-
-	glActiveTexture(GL_TEXTURE7);
-	glBindTexture(GL_TEXTURE_2D, m_depthTex);
-
-	glUniform1i(glGetUniformLocation(shader_depth_debug->ID, "depthTex"), 7);
-
-	glBindVertexArray(m_vaoQuad);
-	glDrawArrays(GL_TRIANGLES, 0, 6);
-	glBindVertexArray(0);
-	*/
-
 	// ------ Scene Pass to FBO ------
 
 	glBindFramebuffer(GL_FRAMEBUFFER, m_fboScene);
-
-	glActiveTexture(GL_TEXTURE7);
-	glBindTexture(GL_TEXTURE_2D, m_depthTex);
 
 	// skybox
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -453,8 +489,8 @@ void Renderer::render(const float fps)
 
 	shader_skybox->use();
 
-	glUniformMatrix4fv(glGetUniformLocation(shader_skybox->ID, "view"), 1, GL_FALSE, glm::value_ptr(view_skybox));
-	glUniformMatrix4fv(glGetUniformLocation(shader_skybox->ID, "proj"), 1, GL_FALSE, glm::value_ptr(projection_skybox));
+	glUniformMatrix4fv(glGetUniformLocation(shader_skybox->ID, "view"), 1, GL_FALSE, glm::value_ptr(viewSkybox));
+	glUniformMatrix4fv(glGetUniformLocation(shader_skybox->ID, "proj"), 1, GL_FALSE, glm::value_ptr(projSkybox));
 
 	glBindVertexArray(m_vaoSky);
 
@@ -472,17 +508,9 @@ void Renderer::render(const float fps)
 	glEnable(GL_DEPTH_TEST);
 	
 	shader_render->use();
-	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "view"), 1, GL_FALSE, glm::value_ptr(view_object));
-	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "proj"), 1, GL_FALSE, glm::value_ptr(projection_object));
-	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "model"), 1, GL_FALSE, glm::value_ptr(model_object));
-	glUniform3fv(glGetUniformLocation(shader_render->ID, "lightDir"), 1, glm::value_ptr(dirLight->getDirection()));
-	glUniform3fv(glGetUniformLocation(shader_render->ID, "color"), 1, glm::value_ptr(dirLight->getColor()));
-	glUniform1f(glGetUniformLocation(shader_render->ID, "intensity"), dirLight->getIntensity());
-	glUniform3fv(glGetUniformLocation(shader_render->ID, "viewPos"), 1, glm::value_ptr(m_pCamera->Position));
-	glUniform1i(glGetUniformLocation(shader_render->ID, "depthTex"), 7);
-
-	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "lightView"), 1, GL_FALSE, glm::value_ptr(lightView));
-	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "lightProj"), 1, GL_FALSE, glm::value_ptr(lightProj));
+	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "view"), 1, GL_FALSE, glm::value_ptr(viewCamera));
+	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "proj"), 1, GL_FALSE, glm::value_ptr(projCamera));
+	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "model"), 1, GL_FALSE, glm::value_ptr(modelCamera));
 
 	glBindVertexArray(m_vaoPlane);
 
@@ -498,13 +526,10 @@ void Renderer::render(const float fps)
 
 	shader_render->use();
 
-	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "view"), 1, GL_FALSE, glm::value_ptr(view_object));
-	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "proj"), 1, GL_FALSE, glm::value_ptr(projection_object));
-	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "model"), 1, GL_FALSE, glm::value_ptr(model_object));
-	glUniform3fv(glGetUniformLocation(shader_render->ID, "lightDir"), 1, glm::value_ptr(dirLight->getDirection()));
-	glUniform3fv(glGetUniformLocation(shader_render->ID, "color"),  1, glm::value_ptr(dirLight->getColor()));
-	glUniform1f(glGetUniformLocation(shader_render->ID, "intensity"), dirLight->getIntensity());
-	glUniform3fv(glGetUniformLocation(shader_render->ID, "viewPos"), 1, glm::value_ptr(m_pCamera->Position));
+	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "view"), 1, GL_FALSE, glm::value_ptr(viewCamera));
+	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "proj"), 1, GL_FALSE, glm::value_ptr(projCamera));
+	glUniformMatrix4fv(glGetUniformLocation(shader_render->ID, "model"), 1, GL_FALSE, glm::value_ptr(modelCamera));
+
 
 	glBindVertexArray(m_vaoObj);
 
@@ -520,24 +545,6 @@ void Renderer::render(const float fps)
 	glBindVertexArray(0);
 
 	
-	/*
-	// Debug Scene Pass to Screen 
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	glDisable(GL_DEPTH_TEST);
-	shader_depth_debug->use();
-
-	glActiveTexture(GL_TEXTURE8);
-	glBindTexture(GL_TEXTURE_2D, m_gColorTex);
-
-	glUniform1i(glGetUniformLocation(shader_depth_debug->ID, "colorTex"), 8);
-
-	glBindVertexArray(m_vaoQuad);
-	glDrawArrays(GL_TRIANGLES, 0, 6);
-	glBindVertexArray(0);
-	*/
-	
-
 	// ------ SSAO ------
 	glBindFramebuffer(GL_FRAMEBUFFER, m_fboSSAO);
 	glDisable(GL_DEPTH_TEST);
@@ -556,7 +563,7 @@ void Renderer::render(const float fps)
 	glUniform1i(glGetUniformLocation(shader_ssao_calc->ID, "noiseTex"), 0);
 	glUniform1i(glGetUniformLocation(shader_ssao_calc->ID, "normalTex"), 1);
 	glUniform1i(glGetUniformLocation(shader_ssao_calc->ID, "posTex"), 2);
-	glUniformMatrix4fv(glGetUniformLocation(shader_ssao_calc->ID, "proj"), 1, GL_FALSE, glm::value_ptr(projection_object));
+	glUniformMatrix4fv(glGetUniformLocation(shader_ssao_calc->ID, "proj"), 1, GL_FALSE, glm::value_ptr(projCamera));
 	glUniform1f(glGetUniformLocation(shader_ssao_calc->ID, "radius"), 0.5);
 	glUniform1f(glGetUniformLocation(shader_ssao_calc->ID, "bias"), 0.025);
 	glUniform2f(glGetUniformLocation(shader_ssao_calc->ID, "noiseScale"),  SCR_WIDTH / 4, SCR_HEIGHT/4);
@@ -589,9 +596,33 @@ void Renderer::render(const float fps)
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, m_gColorTex);
 
+	glActiveTexture(GL_TEXTURE3);
+	glBindTexture(GL_TEXTURE_2D, m_gNormalTex);
+
+	glActiveTexture(GL_TEXTURE4);
+	glBindTexture(GL_TEXTURE_2D, m_gPosTex);
+
+	glActiveTexture(GL_TEXTURE5);
+	glBindTexture(GL_TEXTURE_2D, m_shadowTex);
+
+	glActiveTexture(GL_TEXTURE6);
+	glBindTexture(GL_TEXTURE_2D, m_gDepthTex);
+
 	shader_final->use();
 	glUniform1i(glGetUniformLocation(shader_final->ID, "ssaoBlurTex"), 0);
 	glUniform1i(glGetUniformLocation(shader_final->ID, "colorTex"), 1);
+	glUniform3fv(glGetUniformLocation(shader_final->ID, "lightDir"), 1, glm::value_ptr(lightDirView));
+	glUniform3fv(glGetUniformLocation(shader_final->ID, "color"), 1, glm::value_ptr(dirLight->getColor()));
+	glUniform1f(glGetUniformLocation(shader_final->ID, "intensity"), dirLight->getIntensity());
+	
+	glUniformMatrix4fv(glGetUniformLocation(shader_final->ID, "invView"), 1, GL_FALSE, glm::value_ptr(viewCameraInv));
+	glUniformMatrix4fv(glGetUniformLocation(shader_final->ID, "lightView"), 1, GL_FALSE, glm::value_ptr(lightView));
+	glUniformMatrix4fv(glGetUniformLocation(shader_final->ID, "lightProj"), 1, GL_FALSE, glm::value_ptr(lightProj));
+
+	glUniform1i(glGetUniformLocation(shader_final->ID, "normalTex"), 3);
+	glUniform1i(glGetUniformLocation(shader_final->ID, "posTex"), 4);
+	glUniform1i(glGetUniformLocation(shader_final->ID, "shadowTex"), 5);
+	glUniform1i(glGetUniformLocation(shader_final->ID, "depthTex"), 6);
 
 	glBindVertexArray(m_vaoQuad);
 	glDrawArrays(GL_TRIANGLES, 0, 6);

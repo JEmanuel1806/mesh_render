@@ -71,7 +71,7 @@ private:
 	Texture* textureGround;
 	Texture* m_skybox;
 
-	GLuint m_depthTex;
+	GLuint m_shadowTex;
 	GLuint m_gColorTex, m_gNormalTex, m_gPosTex, m_gDepthTex;
 	GLuint m_ssaoTex, m_ssaoBlurTex;
 	GLuint m_noiseTex;
@@ -85,7 +85,7 @@ private:
 	GLuint m_vaoPlane, m_vboPlane, m_vboPlaneTex, m_vboPlaneNrml;
 	GLuint m_vaoQuad, m_vboQuad;
 	GLuint m_ebo;
-	GLuint m_fboDepth, m_fboScene, m_fboSSAO, m_fboBlur;
+	GLuint m_fboShadowMap, m_fboScene, m_fboSSAO, m_fboBlur;
 
 	std::vector<glm::vec3> m_ssaoPoints;
 	std::vector<glm::vec2> m_noiseValues;

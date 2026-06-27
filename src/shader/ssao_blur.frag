@@ -2,7 +2,7 @@
 
 uniform sampler2D ssaoTex;
 
-in vec2 FragCoord;
+in vec2 TexCoord;
 
 out vec4 FragColor;
 
@@ -14,7 +14,7 @@ void main() {
 
     for(int x = -1; x <= 1; x++){
         for(int y = -1; y <= 1; y++){
-            vec2 currentPos = FragCoord + vec2(x, y) * texelSize;
+            vec2 currentPos = TexCoord + vec2(x, y) * texelSize;
             ao += texture(ssaoTex, currentPos).r;
         }
     }
