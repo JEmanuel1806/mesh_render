@@ -11,6 +11,7 @@ Right now, it handles basic geometry, but the plan is to grow it into a small bu
 ---
 ## Implemented
 - Blinn-Phong Shading
+- Cubemap Skybox lighting
 - Shadow Mapping
 - SSAO
 
@@ -20,8 +21,7 @@ Right now, it handles basic geometry, but the plan is to grow it into a small bu
 This project is still early, but goal:
 
 - Physically-Based Rendering (PBR)
-- Basic lighting and material support
-- Environment maps / HDR skybox lighting
+- Material support
 - Mesh transformations (move, scale, rotate)
 - A user interface using ImGui for toggles and loading new models
 
