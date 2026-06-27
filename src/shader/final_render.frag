@@ -2,74 +2,85 @@
 
 uniform sampler2D ssaoBlurTex;
 uniform sampler2D colorTex;
+uniform sampler2D normalTex;
+uniform sampler2D posTex;
+uniform sampler2D depthTex;
+uniform sampler2D shadowTex;
+
+uniform mat4 invView;
+uniform mat4 lightView;
+uniform mat4 lightProj;
 
 in vec2 TexCoord;
-in vec3 Normal;
-in vec3 FragPos;
-in vec4 vertLightPos;
 
 uniform vec3 lightDir;
 uniform vec3 color;
 uniform float intensity;
-uniform vec3 viewPos;
-
-uniform sampler2D tex;
-uniform sampler2D depthTex;
 
 float ambientStrength = 0.1f;
 float shininess = 32.0f;
+
+float shadowBias = 0.005;
 
 out vec4 FragColor;
 
 void main(){
 
-	vec3 norm = normalize(Normal);
-    vec3 lightDirNorm = normalize(lightDir);
+    vec3 pos = texture(posTex, TexCoord).xyz; 
+    vec3 norm = normalize(texture(normalTex, TexCoord).xyz);
+    float depthScene = texture(depthTex, TexCoord).r;
+    vec3 alb = texture(colorTex, TexCoord).xyz;
+    float ao = texture(ssaoBlurTex, TexCoord).r;
 
-    vec3 viewDir = normalize(viewPos - FragPos);
+    // Cubemap unaffected by shadow and stuff
+    if (depthScene == 1.0) {
+        FragColor = texture(colorTex, TexCoord);
+    return;
+    }
+
+
+    vec3 lightDirNorm = normalize(lightDir);
+    vec3 viewDir = normalize(-pos);
     vec3 toLightDir = -lightDirNorm;
     vec3 halfwayDir = normalize(toLightDir + viewDir);
 
     float diff = max(dot(norm, toLightDir), 0.0);
     float spec = pow(max(dot(norm, halfwayDir), 0.0), shininess);
 
-    vec3 ambient = color * ambientStrength;
-    vec3 diffuse = color * diff;
+    vec3 ambient = alb * color * ambientStrength * ao;
+    vec3 diffuse = alb * color * diff;
     vec3 specular = color * spec;
 
-    vec4 textureColor = texture(tex, TexCoord);
-
-    vec3 ndc = vertLightPos.xyz / vertLightPos.w;
-    vec3 normalizedCoords = ndc * 0.5 + 0.5;
-
-    float currentDepth = normalizedCoords.z;
     float shadow = 0.0;
-
     
+    vec4 worldPos = invView * vec4(pos, 1.0);
+
+    vec4 lightPos = lightProj * lightView * worldPos;
+    vec3 lightNDC = lightPos.xyz / lightPos.w;
+    vec2 lightCoord = lightNDC.xy * 0.5 + 0.5;
+    float lightDist = lightNDC.z * 0.5 + 0.5;
+
     bool insideShadowMap =
-        normalizedCoords.x >= 0.0 && normalizedCoords.x <= 1.0 &&
-        normalizedCoords.y >= 0.0 && normalizedCoords.y <= 1.0 &&
-        normalizedCoords.z >= 0.0 && normalizedCoords.z <= 1.0;
+    lightCoord.x >= 0.0 && lightCoord.x <= 1.0 &&
+    lightCoord.y >= 0.0 && lightCoord.y <= 1.0;
 
+     // pcf 
     if (insideShadowMap){
-        float bias = 0.005;
-        vec2 texelSize = 1.0 / vec2(textureSize(depthTex, 0));
-
-        // 5x5 kernel
-        for (int i = -2; i <= 2; ++i){
-            for (int j = -2; j <= 2; ++j){
-
-                float closestDepth = texture(depthTex,normalizedCoords.xy + vec2(i, j) * texelSize).r;
-
-                if (currentDepth > closestDepth + bias){
-                    shadow += 1.0;
-                }
+    for(int x = -2; x <= 2; x++) {
+        for(int y = -2; y <= 2; y++) {
+            if(texture(shadowTex, lightCoord + vec2(x,y) * (1.0 / vec2(textureSize(shadowTex, 0)))).r + shadowBias < lightDist ) {
+                shadow+= 0.7;
             }
         }
-
-        shadow /= 25.0;
     }
 
-    FragColor = vec4(lighting, 1.0) * textureColor * intensity;
+    shadow /= 25.0;
+    }
+
+
+    vec3 lighting = ambient + (1.0 - shadow) * (diffuse + specular);
+
+    FragColor = vec4(lighting * intensity, 1.0);
+    // FragColor = texture(ssaoBlurTex, TexCoord);
 
 }

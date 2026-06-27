@@ -5,9 +5,6 @@ layout(location = 1) in vec2 aTexCoord;
 
 out vec2 TexCoord;
 
-uniform mat4 lightView;
-uniform mat4 lightProj;
-
 void main()
 {
     TexCoord = aTexCoord;
